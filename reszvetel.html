@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<head>
+    <meta charset="utf-8">
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <style> 
+      text {
+        font-family: Lucida Sans Unicode;
+        color: #3d3d3d
+      }
+      .charttitle {
+        //font-weight: bold;
+        font-size: 16px
+      }
+      .instructions {
+        font-size: 12px;
+        font-style: normal;
+      }
+      .tooltiptitle {
+        font-size: 15px;
+        font-style: normal;
+      }
+    </style>
+<body>
+    <script>
+        var w = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+        var h = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+        console.log(w)
+        var svg_w = w-15
+        var svg_h = Math.max(h-15, 0.75*svg_w)
+        var map_w = 0.9*svg_w
+        var map_h = map_w*0.63*0.9
+        console.log(svg_h)
+        var svgContainer = d3.select("body")
+          .append("svg")
+          .attr("width", svg_w)
+          .attr("height", svg_h)
+        
+        
+        var barchartDOM = svgContainer.insert("g", ".tooltip")
+          .classed("barchart", true)
+          .attr("pointer-events", "none")
+          .attr("transform", "translate(8,"+40+")")
+        //svgContainer.selectAll(".charttitle").remove()
+        //svgContainer.selectAll(".instructions").remove()
+        var barChartTitle = svgContainer
+          .insert("text", ".tooltip")
+          .attr("x", 8)
+          .attr("y", 20)
+          .text("Részvételi arány")
+          .classed("charttitle", true)
+      
+
+        // MAP
+
+        //BARCHART 
+        d3.csv("https://dl.dropboxusercontent.com/s/d51qzb5hpwbei0l/napkozi.csv", function(participationData) {
+            var times = [
+              "07:00",
+              "09:00",
+              "11:00",
+              "13:00",
+              "15:00",
+              "17:00",
+              "18:30"
+            ]
+            
+            var barChartHeight = svg_h-20-55
+            var barChartWidth = svg_w-8
+            var bandScale = d3.scaleBand().domain(times).range([0, barChartWidth]).paddingInner(0.3)
+            var y = d3.scaleLinear()
+              .range([0, barChartHeight])
+              .domain(
+                [
+                  0,
+                  d3.max(participationData.map(function(d){return +d.szaz}))
+                ]
+              )
+            var bars = barchartDOM.selectAll(".bar").data(participationData);
+            var xAxis = barchartDOM
+              .append("g")
+              .call(d3.axisBottom(bandScale).tickSize(4))
+              .attr("transform", "translate(0,"+barChartHeight+")")
+            xAxis.select(".domain").remove()
+            bars.exit().remove();
+            bars
+              .enter()
+              .append("rect")
+              .merge(bars)
+              .attr("x", function(d) {return bandScale(d.ido)})
+              .attr("y", function(d) {return barChartHeight-y(d.szaz)})
+              .attr("height", function(d) {return y(d.szaz)})
+              .attr("width", bandScale.bandwidth())
+              .attr("fill", "gray")
+              .classed("bar", true)
+            
+            var barLabels = barchartDOM.selectAll(".barlabel").data(participationData)
+            barLabels.exit().remove()
+            barLabels
+              .enter()
+              .append("text")
+              .merge(barLabels)
+              .attr("x", function(d) {return bandScale(d.ido) + bandScale.bandwidth()/2})
+              .attr("y", function(d) {return barChartHeight-y(d.szaz)-3})
+              .attr("text-anchor", "middle")
+              .text(function(d) {return d.szaz +"%"})
+              .attr("font-size", "11px")
+              .classed("barlabel", true)
+          })
+    </script>
+</body>

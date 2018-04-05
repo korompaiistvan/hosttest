@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<head>
+    <meta charset="utf-8">
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <style> 
+      text {
+        font-family: Lucida Sans Unicode;
+        color: #3d3d3d
+      }
+      .charttitle {
+        //font-weight: bold;
+        font-size: 16px
+      }
+      .instructions {
+        font-size: 12px;
+        font-style: normal;
+      }
+      .tooltiptitle {
+        font-size: 15px;
+        font-style: normal;
+      }
+    </style>
+<body>
+    <script>
+        var w = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+        var h = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+        console.log(w)
+        var svg_w = w-15
+        var svg_h = Math.max(h-15, 0.75*svg_w)
+        var map_w = 0.9*svg_w
+        var map_h = map_w*0.63*0.9
+        console.log(svg_h)
+        var svgContainer = d3.select("body")
+          .append("svg")
+          .attr("width", svg_w)
+          .attr("height", svg_h)
+        
+        var svgBG = svgContainer
+          .append("rect")
+          .attr("fill-opacity", 0)
+          .attr("width", svg_w)
+          .attr("height", svg_h)
+          .on("click", function(){
+            if (tooltip.attr("visibility")=="visible"){
+              tooltip.attr("visibility", "hidden")
+            }
+          })
+        
+
+        var listDOM = svgContainer.insert("g",".tooltip")
+          .classed("listvotes", true)
+          .attr("transform", "translate("+8+","+(38)+")")
+
+        //svgContainer.selectAll(".charttitle").remove()
+        //svgContainer.selectAll(".instructions").remove()
+
+        var listChartTitle = svgContainer
+          .insert("text", ".tooltip")
+          .attr("x",8)
+          .attr("y", 20)
+          .text("Listás szavazatok állása")
+          .classed("charttitle", true)
+        
+
+
+        function colorScale(tnev){
+          var bigParties = ["FIDESZ-KDNP","JOBBIK","MSZP-PÁRBESZÉD","DK","EGYÜTT","LMP","MKKP","MOMENTUM"]
+          var bigPartyColors = ["#f28e2b","#6b6563","#e15759","#4e79a7","#76b7b2","#59a14f","#edc948","#b07aa1"]
+          var defaultColorScale = d3.scaleOrdinal().domain(bigParties).range(bigPartyColors)
+          var color
+          if (bigParties.indexOf(tnev)!=-1){
+            color = defaultColorScale(tnev)
+          } else {
+            color = "#bab0ac"
+          }
+          return color
+        }
+        /*
+        var colorScale = d3.scaleOrdinal()
+          .domain(["FIDESZ-KDNP","JOBBIK","MSZP-PÁRBESZÉD","DK","EGYÜTT","LMP","MKKP","MOMENTUM"])
+          .range(["#f28e2b","#6b6563","#e15759","#4e79a7","#76b7b2","#59a14f","#edc948","#b07aa1"])
+
+        colorScale.domain([""]).range(["#f28e2b"])
+        */
+
+        //LIST BAR CHART
+
+        d3.csv("https://www.dl.dropboxusercontent.com/s/kjl7xymjimyvfi8/listas_eredmenyek.csv", function(listData) {
+            listData = listData.filter(function(d){return d.szavarany>=0.02})
+            listData.sort(function(a,b){return b.szavarany-a.szavarany})
+            var cumulative = 0
+            for (var i=0; i<listData.length; i++){
+              listData[i].start = cumulative
+              cumulative += +listData[i].szavarany
+              listData[i].end = cumulative
+            }
+            listData.push({"tnev": "Egyéb", "start": cumulative, "end": 1, "szavarany": 1-cumulative})
+            var width = svg_w-30
+            var height = svg_h-38
+            var gPadding = 8
+            var bandScale = d3.scaleBand()
+              .domain(listData.map(function(d){return d.tnev}))
+              .range([0, height])
+              .paddingInner(0.1)
+
+            var yAxis = listDOM.append("g")
+              .call(d3.axisLeft(bandScale).tickSize(4))
+              .classed("partyaxis",true)
+            var leftMargin = yAxis.node().getBBox().width
+            yAxis.attr("transform", "translate("+leftMargin+",0)")
+            yAxis.select(".domain").remove()
+
+            var linearScale = d3.scaleLinear()
+              .domain([0, d3.max(listData.map(function(d){return d.szavarany}))])
+              .range([0, width-leftMargin-40])
+            
+            var vGridLines = listDOM.append("g")
+              .call(d3.axisBottom(linearScale).tickFormat("").tickSize(height))
+              .classed("vgridline",true)
+              .attr("stroke", "gray")
+              .attr("stroke-opacity", 0.1)
+              .attr("transform", "translate("+leftMargin+",0)")
+            vGridLines.select(".domain").remove()
+            
+            var bars = listDOM
+              .selectAll(".partybar")
+              .data(listData)
+              .enter()
+              .append("g")
+              .classed("partybar", true)
+            var barRects = bars.append("rect")
+              .attr("x", leftMargin)
+              .attr("y", function(d) {return bandScale(d.tnev)})
+              .attr("width", function(d) {return linearScale(d.szavarany)})
+              .attr("height", bandScale.bandwidth())
+              .attr("fill", function(d) {return colorScale(d.tnev)})
+              .attr("fill-opacity", 0.75)
+            
+            var xAxis = listDOM.append("g")
+              .call(d3.axisBottom(linearScale).tickFormat(d3.format(".0%")).tickSize(4))
+              .classed("listlinearaxis",true)
+              .attr("transform", "translate("+leftMargin+","+height+")")
+            xAxis.select(".domain").remove()
+
+            
+            var percentLabels = bars
+              .append("text")
+              .attr("x", function(d) {
+                return linearScale(d.szavarany)+4+leftMargin
+               })
+              .attr("y", function(d) {return bandScale(d.tnev)+bandScale.bandwidth()/2+4})
+              .attr("font-size", "11px")
+              .attr("text-anchor", "start")
+              .text(function(d) {
+                var perc = d.szavarany*100
+                console.log(perc)
+                return perc.toFixed(2)+"%"
+              })
+              .classed("percentlabel", true)
+          })
+    </script>
+</body>

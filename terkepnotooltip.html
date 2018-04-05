@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<head>
+    <meta charset="utf-8">
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <style> 
+      text {
+        font-family: Lucida Sans Unicode;
+        color: #3d3d3d
+      }
+      .charttitle {
+        //font-weight: bold;
+        font-size: 16px
+      }
+      .instructions {
+        font-size: 12px;
+        font-style: normal;
+      }
+      .tooltiptitle {
+        font-size: 15px;
+        font-style: normal;
+      }
+    </style>
+<body>
+    <script>
+        var w = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+        var h = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+        console.log(w)
+        var svg_w = w-15
+        var svg_h = Math.max(h-15, 0.75*svg_w)
+        var map_w = 0.9*svg_w
+        var map_h = map_w*0.63*0.9
+        svg_h = map_h
+        console.log(svg_h)
+        var svgContainer = d3.select("body")
+          .append("svg")
+          .attr("width", svg_w)
+          .attr("height", svg_h)        
+
+        var mapDOM = svgContainer
+          .insert("g", ".tooltip")
+          .classed("mapcontainer", true)
+          .attr("transform", "translate("+(svg_w-map_w)/2+",0)")
+        
+        //svgContainer.selectAll(".charttitle").remove()
+        //svgContainer.selectAll(".instructions").remove()
+        
+        function colorScale(tnev){
+          var bigParties = ["FIDESZ-KDNP","JOBBIK","MSZP-PÁRBESZÉD","DK","EGYÜTT","LMP","MKKP","MOMENTUM"]
+          var bigPartyColors = ["#f28e2b","#6b6563","#e15759","#4e79a7","#76b7b2","#59a14f","#edc948","#b07aa1"]
+          var defaultColorScale = d3.scaleOrdinal().domain(bigParties).range(bigPartyColors)
+          var color
+          if (bigParties.indexOf(tnev)!=-1){
+            color = defaultColorScale(tnev)
+          } else {
+            color = "#bab0ac"
+          }
+          return color
+        }
+        /*
+        var colorScale = d3.scaleOrdinal()
+          .domain(["FIDESZ-KDNP","JOBBIK","MSZP-PÁRBESZÉD","DK","EGYÜTT","LMP","MKKP","MOMENTUM"])
+          .range(["#f28e2b","#6b6563","#e15759","#4e79a7","#76b7b2","#59a14f","#edc948","#b07aa1"])
+
+        colorScale.domain([""]).range(["#f28e2b"])
+        */
+        var huBBox = [[16.113887, 45.737128], [22.897709, 48.585237]]
+        var bpBBox = [[18.925106, 47.34969], [19.334926, 47.613147]]
+        var bpSize = 0.25*map_w
+        var scaleX = d3.scaleLinear()
+          .domain([huBBox[0][0], huBBox[1][0]])
+          .range([0, 0.9 * map_w]) 
+        var scaleY = d3.scaleLinear()
+          .domain([huBBox[0][1], huBBox[1][1]])
+          .range([map_h, 0])
+
+        var scaleXBP = d3.scaleLinear()
+          .domain([bpBBox[0][0], bpBBox[1][0]])
+          .range([map_w-bpSize, map_w])
+        var scaleYBP = d3.scaleLinear()
+          .domain([bpBBox[0][1], bpBBox[1][1]])
+          .range([map_h, map_h-bpSize]) 
+
+
+        // MAP
+        d3.csv("https://dl.dropboxusercontent.com/s/u5kybo2npwg45l4/egyeni_nyertesek.csv", function(districtData) {
+          var districts = mapDOM.selectAll(".district")
+            .data(districtData);
+          districts.exit().remove();
+          districts
+            .enter()
+            .append("polygon")
+            .merge(districts)
+            .attr("points", function(d) {
+              if (d.name.indexOf("Budapest")!=-1){
+                return d.flatpolygon.split(" ").map(function(d){
+                  return [
+                    scaleXBP(d.split(",")[0]), 
+                    scaleYBP(d.split(",")[1])
+                  ].join(",")
+                }).join(" ")
+              } else {
+                return d.flatpolygon.split(" ").map(function(d){
+                  return [
+                    scaleX(d.split(",")[0]), 
+                    scaleY(d.split(",")[1])
+                  ].join(",")
+                }).join(" ")
+              }
+            })
+            .attr("fill-opacity", 0.75)
+            .attr("fill", function(d){return colorScale(d.tnev)})
+            .attr("stroke", "black")
+            .attr("stroke-width", 0.5)
+            .attr("stroke-opacity", 0.5)
+            .classed("district", true)
+          ;
+        })
+
+        //BARCHART 
+
+        //TOOLTIPS
+
+        //LIST BAR CHART
+    </script>
+</body>
